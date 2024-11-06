@@ -1,0 +1,54 @@
+services:
+  postgres:
+    image: postgres:16.1
+    environment:
+      - POSTGRES_PASSWORD=root
+      - POSTGRES_USER=admin
+      - POSTGRES_DB=gerador_diplomas
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db_postgre/ddl.sql:/docker-entrypoint-initdb.d/ddl.sql
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: user@user.com
+      PGADMIN_DEFAULT_PASSWORD: 1234
+      PGADMIN_LISTEN_PORT: 5050
+    ports:
+      - "5050:5050"
+    depends_on:
+      - postgres
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  api:
+    build: ./api
+    environment:
+      - DB_HOST=localhost
+      - DB_USER=admin
+      - DB_PASSWORD=root
+      - DB_DATABASE=gerador_diplomas
+      - RABBITMQ_HOST=rabbitmq
+    depends_on:
+      - postgres
+      - rabbitmq
+    ports:
+      - "3000:3000"
+      
+  worker:
+    build: ./worker
+    environment:
+      - DB_HOST=localhost
+      - DB_USER=admin
+      - DB_PASSWORD=root
+      - DB_DATABASE=gerador_diplomas
+      - RABBITMQ_HOST=rabbitmq
+    depends_on:
+      - postgres
+      - rabbitmq
