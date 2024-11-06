@@ -14,11 +14,6 @@ const connection = new Client({
   database: 'gerador_diplomas'
 });
 
-connection.connect((err) => {
-  if (err) throw err;
-  console.log('Conectado ao PostgreSQL!');
-});
-
 async function sendToQueue(message) {
   try {
     const connection = await amqp.connect('amqp://rabbitmq');

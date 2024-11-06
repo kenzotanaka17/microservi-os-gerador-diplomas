@@ -11,10 +11,15 @@ const connection = new Client({
   database: 'gerador_diplomas'
 });
 
-connection.connect((err) => {
-  if (err) throw err;
-  console.log('conectado ao postgres no worker');
-});
+setTimeout(() => {
+  connection.connect((err) => {
+    if (err) {
+      console.error('Erro ao conectar ao banco de dados:', err);
+      return;
+    }
+    console.log('Conectado ao Postgres no worker');
+  });
+}, 3000);
 
 async function generatePDF(data) {
   const templatePath = path.join(__dirname, 'template.html');
