@@ -9,6 +9,8 @@ services:
       - "5432:5432"
     volumes:
       - ./db_postgres/ddl.sql:/docker-entrypoint-initdb.d/ddl.sql
+    networks:
+      - app-network
 
   pgadmin:
     image: dpage/pgadmin4
@@ -20,12 +22,16 @@ services:
       - "5050:5050"
     depends_on:
       - postgres
+    networks:
+      - app-network
 
   rabbitmq:
     image: rabbitmq:3-management
     ports:
       - "5672:5672"
       - "15672:15672"
+    networks:
+      - app-network
 
   api:
     build: ./api
@@ -40,6 +46,8 @@ services:
       - rabbitmq
     ports:
       - "3000:3000"
+    networks:
+      - app-network
       
   worker:
     build: ./worker
@@ -52,3 +60,9 @@ services:
     depends_on:
       - postgres
       - rabbitmq
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

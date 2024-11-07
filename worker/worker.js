@@ -4,6 +4,7 @@ const fs = require('fs');
 const puppeteer = require('puppeteer');
 const path = require('path');
 
+// Configuração do PostgreSQL
 const connection = new Client({
   user: 'admin',
   password: 'root',
@@ -11,6 +12,7 @@ const connection = new Client({
   database: 'gerador_diplomas'
 });
 
+// Conexão ao PostgreSQL
 setTimeout(() => {
   connection.connect((err) => {
     if (err) {
@@ -21,6 +23,7 @@ setTimeout(() => {
   });
 }, 3000);
 
+// Função para gerar o PDF
 async function generatePDF(data) {
   const templatePath = path.join(__dirname, 'template.html');
   let html = fs.readFileSync(templatePath, 'utf-8');
@@ -49,8 +52,10 @@ async function generatePDF(data) {
   return pdfPath;
 }
 
+// Função para consumir a fila do RabbitMQ
 async function consumeQueue() {
   try {
+    // Conexão ao RabbitMQ
     const connectionRabbitMQ = await amqp.connect('amqp://rabbitmq');
     const channel = await connectionRabbitMQ.createChannel();
     const queue = 'diplomasQueue';
@@ -63,13 +68,16 @@ async function consumeQueue() {
       console.log('Mensagem recebida:', message);
 
       try {
+        // Geração do PDF e atualização no banco de dados
         const pdfPath = await generatePDF(message);
-        const updateQuery = 'UPDATE certificados SET template_diploma = ? WHERE id = ?';
+        const updateQuery = 'UPDATE certificados SET template_diploma = $1 WHERE id = $2';
         connection.query(updateQuery, [pdfPath, message.id], (err) => {
-          if (err) console.error('Erro ao atualizar o banco de dados:', err);
+          if (err) {
+            console.error('Erro ao atualizar o banco de dados:', err);
+            return;
+          }
           console.log('Banco de dados atualizado com sucesso.');
         });
-
       } catch (error) {
         console.error('Erro ao gerar o PDF:', error);
       }
@@ -79,7 +87,9 @@ async function consumeQueue() {
 
   } catch (error) {
     console.error("Erro ao consumir a fila RabbitMQ:", error);
+    setTimeout(consumeQueue, 5000); // Tenta reconectar após 5 segundos em caso de erro
   }
 }
 
+// Inicia o consumo da fila
 consumeQueue();
