@@ -2,9 +2,9 @@ services:
   postgres:
     image: postgres:16.1
     environment:
-      - POSTGRES_PASSWORD=root
-      - POSTGRES_USER=admin
-      - POSTGRES_DB=gerador_diplomas
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: gerador_diplomas
     ports:
       - "5432:5432"
     volumes:
@@ -34,13 +34,9 @@ services:
       - app-network
 
   api:
-    build: ./api
-    environment:
-      - DB_HOST=postgres
-      - DB_USER=admin
-      - DB_PASSWORD=root
-      - DB_DATABASE=gerador_diplomas
-      - RABBITMQ_HOST=rabbitmq
+    build: 
+      context: ./api
+      dockerfile: Dockerfile
     depends_on:
       - postgres
       - rabbitmq
@@ -50,13 +46,9 @@ services:
       - app-network
       
   worker:
-    build: ./worker
-    environment:
-      - DB_HOST=postgres
-      - DB_USER=admin
-      - DB_PASSWORD=root
-      - DB_DATABASE=gerador_diplomas
-      - RABBITMQ_HOST=rabbitmq
+    build: 
+      context: ./worker
+      dockerfile: Dockerfile
     depends_on:
       - postgres
       - rabbitmq

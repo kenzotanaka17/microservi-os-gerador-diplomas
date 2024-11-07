@@ -4,7 +4,6 @@ const fs = require('fs');
 const puppeteer = require('puppeteer');
 const path = require('path');
 
-// Configuração do PostgreSQL
 const connection = new Client({
   user: 'admin',
   password: 'root',
@@ -12,7 +11,6 @@ const connection = new Client({
   database: 'gerador_diplomas'
 });
 
-// Conexão ao PostgreSQL
 setTimeout(() => {
   connection.connect((err) => {
     if (err) {
@@ -23,7 +21,6 @@ setTimeout(() => {
   });
 }, 3000);
 
-// Função para gerar o PDF
 async function generatePDF(data) {
   const templatePath = path.join(__dirname, 'template.html');
   let html = fs.readFileSync(templatePath, 'utf-8');
@@ -37,8 +34,8 @@ async function generatePDF(data) {
               .replace('[[curso]]', data.nome_curso)
               .replace('[[carga_horaria]]', data.carga_horaria)
               .replace('[[data_emissao]]', data.data_emissao)
-              .replace('[[nome_assinatura]]', data.assinaturas[0].nome)
-              .replace('[[cargo]]', data.assinaturas[0].cargo);
+              .replace('[[cargo]]', data.cargo)
+              .replace('[[nome_assinatura]]', data.nome_assinatura);
 
   const browser = await puppeteer.launch();
   const page = await browser.newPage();
@@ -52,10 +49,8 @@ async function generatePDF(data) {
   return pdfPath;
 }
 
-// Função para consumir a fila do RabbitMQ
 async function consumeQueue() {
   try {
-    // Conexão ao RabbitMQ
     const connectionRabbitMQ = await amqp.connect('amqp://rabbitmq');
     const channel = await connectionRabbitMQ.createChannel();
     const queue = 'diplomasQueue';
@@ -68,7 +63,6 @@ async function consumeQueue() {
       console.log('Mensagem recebida:', message);
 
       try {
-        // Geração do PDF e atualização no banco de dados
         const pdfPath = await generatePDF(message);
         const updateQuery = 'UPDATE certificados SET template_diploma = $1 WHERE id = $2';
         connection.query(updateQuery, [pdfPath, message.id], (err) => {
@@ -87,9 +81,8 @@ async function consumeQueue() {
 
   } catch (error) {
     console.error("Erro ao consumir a fila RabbitMQ:", error);
-    setTimeout(consumeQueue, 5000); // Tenta reconectar após 5 segundos em caso de erro
+    setTimeout(consumeQueue, 5000);
   }
 }
 
-// Inicia o consumo da fila
 consumeQueue();
