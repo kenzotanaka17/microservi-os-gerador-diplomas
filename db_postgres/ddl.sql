@@ -13,8 +13,3 @@ CREATE TABLE IF NOT EXISTS certificados (
     nome_assinatura VARCHAR(100),
     template_diploma VARCHAR(100)
 );
-
-INSERT INTO certificados (nome_aluno, nacionalidade, naturalidade, data_nascimento, numero_rg, data_conclusao, nome_curso, carga_horaria, data_emissao, cargo, nome_assinatura, template_diploma)
-VALUES
-('João Silva', 'Brasileiro', 'São Paulo', '1990-01-01', '12345678', '2024-10-10', 'Engenharia de Software', 300, '2024-10-15', 'Diretor', 'José Romualdo', 'asdsadadad');
-
