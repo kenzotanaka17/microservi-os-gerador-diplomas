@@ -11,6 +11,11 @@ async function generatePDF(data) {
 
   const templatePath = path.join(__dirname, 'template.html');
   console.log('Carregando template HTML de:', templatePath);
+  if (!fs.existsSync(templatePath)) {
+    console.error('Erro: template.html não encontrado no path:', templatePath);
+    return;
+  }
+  
   let html = fs.readFileSync(templatePath, 'utf-8');
 
   console.log('Substituindo variáveis no template...');
@@ -32,17 +37,15 @@ async function generatePDF(data) {
       console.log('Abrindo o navegador Puppeteer...');
       const browser = await puppeteer.launch({ 
           headless: true,
-          args: ['--no-sandbox', '--disable-setuid-sandbox'],
-          timeout: 120000
+          args: ['--no-sandbox', '--disable-setuid-sandbox']
       });
-
       const page = await browser.newPage();
       console.log('Página criada, carregando conteúdo HTML...');
       await page.setContent(html, { waitUntil: 'load' });
 
       console.log('Conteúdo HTML carregado, gerando PDF...');
       const pdfPath = path.join(__dirname, `diploma_${data.nome_aluno}.pdf`);
-      await page.pdf({ path: pdfPath, format: 'A4', timeout: 60000 });
+      await page.pdf({ path: pdfPath, format: 'A4' });
 
       console.log(`PDF gerado com sucesso: ${pdfPath}`);
       await browser.close();

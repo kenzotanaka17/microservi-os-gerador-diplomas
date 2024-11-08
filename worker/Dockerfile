@@ -1,4 +1,4 @@
-FROM node:16
+FROM node:18
 
 RUN apt-get update && apt-get install -y \
     libx11-xcb1 \
@@ -16,9 +16,10 @@ RUN apt-get update && apt-get install -y \
     libgtk-3-0 \
     libgbm-dev \
     chromium \
+    libgconf-2-4 \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
 COPY . .
 
