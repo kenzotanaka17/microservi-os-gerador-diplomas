@@ -7,39 +7,47 @@ const RABBITMQ_URL = 'amqp://rabbitmq';
 const QUEUE = 'diplomasQueue';
 
 async function generatePDF(data) {
+  console.log('Iniciando a geração do PDF...');
+
+  const templatePath = path.join(__dirname, 'template.html');
+  console.log('Carregando template HTML de:', templatePath);
+  let html = fs.readFileSync(templatePath, 'utf-8');
+
+  console.log('Substituindo variáveis no template...');
+  html = html.replace(/\[\[nome\]\]/g, data.nome_aluno)
+             .replace(/\[\[nacionalidade\]\]/g, data.nacionalidade)
+             .replace(/\[\[estado\]\]/g, data.naturalidade)
+             .replace(/\[\[data_nascimento\]\]/g, data.data_nascimento)
+             .replace(/\[\[documento\]\]/g, data.numero_rg)
+             .replace(/\[\[data_conclusao\]\]/g, data.data_conclusao)
+             .replace(/\[\[curso\]\]/g, data.nome_curso)
+             .replace(/\[\[carga_horaria\]\]/g, data.carga_horaria)
+             .replace(/\[\[data_emissao\]\]/g, data.data_emissao)
+             .replace(/\[\[cargo\]\]/g, data.cargo)
+             .replace(/\[\[nome_assinatura\]\]/g, data.nome_assinatura);
+
+  console.log('Variáveis substituídas com sucesso.');
+
   try {
-      const templatePath = path.join(__dirname, 'template.html');
-      if (!fs.existsSync(templatePath)) {
-          throw new Error(`Template não encontrado em ${templatePath}`);
-      }
-      let html = fs.readFileSync(templatePath, 'utf-8');
+      console.log('Abrindo o navegador Puppeteer...');
+      const browser = await puppeteer.launch({ 
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox'],
+          timeout: 120000
+      });
 
-      html = html.replace(/{{nome_aluno}}/g, data.nome_aluno)
-                 .replace(/{{nacionalidade}}/g, data.nacionalidade)
-                 .replace(/{{naturalidade}}/g, data.naturalidade)
-                 .replace(/{{data_nascimento}}/g, data.data_nascimento)
-                 .replace(/{{numero_rg}}/g, data.numero_rg)
-                 .replace(/{{data_conclusao}}/g, data.data_conclusao)
-                 .replace(/{{nome_curso}}/g, data.nome_curso)
-                 .replace(/{{carga_horaria}}/g, data.carga_horaria)
-                 .replace(/{{data_emissao}}/g, data.data_emissao)
-                 .replace(/{{cargo}}/g, data.cargo)
-                 .replace(/{{nome_assinatura}}/g, data.nome_assinatura);
-
-      console.log("HTML template carregado e variáveis substituídas.");
-
-      const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
       const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
+      console.log('Página criada, carregando conteúdo HTML...');
+      await page.setContent(html, { waitUntil: 'load' });
 
-      const pdfPath = path.join(__dirname, `diploma_${data.nome_aluno || 'aluno'}.pdf`);
+      console.log('Conteúdo HTML carregado, gerando PDF...');
+      const pdfPath = path.join(__dirname, `diploma_${data.nome_aluno}.pdf`);
+      await page.pdf({ path: pdfPath, format: 'A4', timeout: 60000 });
 
-      await page.pdf({ path: pdfPath, format: 'A4' });
+      console.log(`PDF gerado com sucesso: ${pdfPath}`);
       await browser.close();
-
-      console.log(`PDF gerado para ${data.nome_aluno || 'aluno'}: ${pdfPath}`);
   } catch (error) {
-      console.error("Erro ao gerar o PDF:", error);
+      console.error('Erro ao gerar o PDF:', error);
   }
 }
 
