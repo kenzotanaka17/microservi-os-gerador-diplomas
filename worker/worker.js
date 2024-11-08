@@ -1,88 +1,94 @@
-const { Client } = require('pg');
 const amqp = require('amqplib');
 const fs = require('fs');
 const puppeteer = require('puppeteer');
 const path = require('path');
 
-const connection = new Client({
-  user: 'admin',
-  password: 'root',
-  host: 'postgres',
-  database: 'gerador_diplomas'
-});
-
-setTimeout(() => {
-  connection.connect((err) => {
-    if (err) {
-      console.error('Erro ao conectar ao banco de dados:', err);
-      return;
-    }
-    console.log('Conectado ao Postgres no worker');
-  });
-}, 3000);
+const RABBITMQ_URL = 'amqp://rabbitmq';
+const QUEUE = 'diplomasQueue';
 
 async function generatePDF(data) {
-  const templatePath = path.join(__dirname, 'template.html');
-  let html = fs.readFileSync(templatePath, 'utf-8');
-
-  html = html.replace('[[nome]]', data.nome_aluno)
-              .replace('[[nacionalidade]]', data.nacionalidade)
-              .replace('[[estado]]', data.naturalidade)
-              .replace('[[data_nascimento]]', data.data_nascimento)
-              .replace('[[documento]]', data.numero_rg)
-              .replace('[[data_conclusao]]', data.data_conclusao)
-              .replace('[[curso]]', data.nome_curso)
-              .replace('[[carga_horaria]]', data.carga_horaria)
-              .replace('[[data_emissao]]', data.data_emissao)
-              .replace('[[cargo]]', data.cargo)
-              .replace('[[nome_assinatura]]', data.nome_assinatura);
-
-  const browser = await puppeteer.launch();
-  const page = await browser.newPage();
-  await page.setContent(html);
-  
-  const pdfPath = path.join(__dirname, `diploma_${data.id}.pdf`);
-  await page.pdf({ path: pdfPath, format: 'A4', landscape: true });
-  await browser.close();
-
-  console.log('PDF gerado com sucesso:', pdfPath);
-  return pdfPath;
-}
-
-async function consumeQueue() {
   try {
-    const connectionRabbitMQ = await amqp.connect('amqp://rabbitmq');
-    const channel = await connectionRabbitMQ.createChannel();
-    const queue = 'diplomasQueue';
-
-    await channel.assertQueue(queue, { durable: true });
-    console.log('Aguardando mensagens na fila...');
-
-    channel.consume(queue, async (msg) => {
-      const message = JSON.parse(msg.content.toString());
-      console.log('Mensagem recebida:', message);
-
-      try {
-        const pdfPath = await generatePDF(message);
-        const updateQuery = 'UPDATE certificados SET template_diploma = $1 WHERE id = $2';
-        connection.query(updateQuery, [pdfPath, message.id], (err) => {
-          if (err) {
-            console.error('Erro ao atualizar o banco de dados:', err);
-            return;
-          }
-          console.log('Banco de dados atualizado com sucesso.');
-        });
-      } catch (error) {
-        console.error('Erro ao gerar o PDF:', error);
+      const templatePath = path.join(__dirname, 'template.html');
+      if (!fs.existsSync(templatePath)) {
+          throw new Error(`Template não encontrado em ${templatePath}`);
       }
+      let html = fs.readFileSync(templatePath, 'utf-8');
 
-      channel.ack(msg);
-    });
+      html = html.replace(/{{nome_aluno}}/g, data.nome_aluno)
+                 .replace(/{{nacionalidade}}/g, data.nacionalidade)
+                 .replace(/{{naturalidade}}/g, data.naturalidade)
+                 .replace(/{{data_nascimento}}/g, data.data_nascimento)
+                 .replace(/{{numero_rg}}/g, data.numero_rg)
+                 .replace(/{{data_conclusao}}/g, data.data_conclusao)
+                 .replace(/{{nome_curso}}/g, data.nome_curso)
+                 .replace(/{{carga_horaria}}/g, data.carga_horaria)
+                 .replace(/{{data_emissao}}/g, data.data_emissao)
+                 .replace(/{{cargo}}/g, data.cargo)
+                 .replace(/{{nome_assinatura}}/g, data.nome_assinatura);
 
+      console.log("HTML template carregado e variáveis substituídas.");
+
+      const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+
+      const pdfPath = path.join(__dirname, `diploma_${data.nome_aluno || 'aluno'}.pdf`);
+
+      await page.pdf({ path: pdfPath, format: 'A4' });
+      await browser.close();
+
+      console.log(`PDF gerado para ${data.nome_aluno || 'aluno'}: ${pdfPath}`);
   } catch (error) {
-    console.error("Erro ao consumir a fila RabbitMQ:", error);
-    setTimeout(consumeQueue, 5000);
+      console.error("Erro ao gerar o PDF:", error);
   }
 }
 
-consumeQueue();
+async function connectToRabbitMQ() {
+    let connection;
+    let channel;
+    let attempt = 0;
+    const maxAttempts = 5;
+    const delay = 5000;
+
+    while (attempt < maxAttempts) {
+        try {
+            console.log(`Tentativa de conexão ao RabbitMQ, tentativa ${attempt + 1}/${maxAttempts}...`);
+            connection = await amqp.connect(RABBITMQ_URL);
+            channel = await connection.createChannel();
+            await channel.assertQueue(QUEUE, { durable: true });
+            console.log(`Conectado ao RabbitMQ e fila ${QUEUE} pronta`);
+            return channel;
+        } catch (error) {
+            console.error(`Erro ao tentar conectar ao RabbitMQ: ${error.message}`);
+            attempt++;
+            if (attempt < maxAttempts) {
+                console.log(`Tentando novamente em ${delay / 1000} segundos...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+    }
+
+    throw new Error('Falha ao conectar ao RabbitMQ após várias tentativas');
+}
+
+async function start() {
+    try {
+        const channel = await connectToRabbitMQ();
+        
+        console.log(`Aguardando mensagens na fila: ${QUEUE}`);
+        channel.consume(QUEUE, async (message) => {
+            if (message !== null) {
+                const data = JSON.parse(message.content.toString());
+                console.log("Mensagem recebida:", data);
+
+                await generatePDF(data);
+
+                channel.ack(message);
+            }
+        });
+    } catch (error) {
+        console.error('Erro ao iniciar o worker:', error);
+    }
+}
+
+setTimeout(start, 3000);
