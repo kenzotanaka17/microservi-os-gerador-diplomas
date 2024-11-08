@@ -44,7 +44,14 @@ async function generatePDF(data) {
       await page.setContent(html, { waitUntil: 'load' });
 
       console.log('Conteúdo HTML carregado, gerando PDF...');
-      const pdfPath = path.join(__dirname, `diploma_${data.nome_aluno}.pdf`);
+
+      const diplomasDir = path.join(__dirname, 'diplomas');
+      if (!fs.existsSync(diplomasDir)) {
+          fs.mkdirSync(diplomasDir);
+          console.log('Diretório "diplomas" criado.');
+      }
+
+      const pdfPath = path.join(diplomasDir, `diploma_${data.nome_aluno}.pdf`);
       await page.pdf({ path: pdfPath, format: 'A4' });
 
       console.log(`PDF gerado com sucesso: ${pdfPath}`);
