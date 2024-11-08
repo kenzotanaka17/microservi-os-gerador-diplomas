@@ -1,12 +1,12 @@
 const express = require('express');
-const { Client } = require('pg');
+const { Pool } = require('pg');
 const amqp = require('amqplib');
 const bodyParser = require('body-parser');
 
 const app = express();
 app.use(bodyParser.json());
 
-const connection = new Client({
+const pool = new Pool({
   user: 'admin',
   password: 'root',
   host: 'postgres',
@@ -54,38 +54,37 @@ app.post('/diploma', async (req, res) => {
   }
 
   const query = `
-  INSERT INTO certificados 
-  (nome_aluno, nacionalidade, naturalidade, data_nascimento, numero_rg, data_conclusao, nome_curso, carga_horaria, data_emissao, cargo, nome_assinatura, template_diploma) 
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-`;
+    INSERT INTO certificados 
+    (nome_aluno, nacionalidade, naturalidade, data_nascimento, numero_rg, data_conclusao, nome_curso, carga_horaria, data_emissao, cargo, nome_assinatura, template_diploma) 
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+  `;
 
-try {
-  await connection.connect();
-  await connection.query(query, [
-    nome_aluno,
-    nacionalidade,
-    naturalidade,
-    data_nascimento,
-    numero_rg,
-    data_conclusao,
-    nome_curso,
-    carga_horaria,
-    data_emissao,
-    cargo, 
-    nome_assinatura,
-    template_diploma
-  ]);
+  try {
+    const client = await pool.connect();
+    await client.query(query, [
+      nome_aluno,
+      nacionalidade,
+      naturalidade,
+      data_nascimento,
+      numero_rg,
+      data_conclusao,
+      nome_curso,
+      carga_horaria,
+      data_emissao,
+      cargo, 
+      nome_assinatura,
+      template_diploma
+    ]);
 
-  await sendMessage(req.body);
+    await sendMessage(req.body);
 
-  await connection.end();
+    client.release();
 
-  res.status(201).send("Certificado criado com sucesso");
-} catch (err) {
-  console.log("Erro ao criar o certificado", err);
-  await connection.end();
-}
-
+    res.status(201).send("Certificado criado com sucesso");
+  } catch (err) {
+    console.log("Erro ao criar o certificado", err);
+    res.status(500).send("Erro ao criar o certificado");
+  }
 });
 
 app.get('/', (req, res) => {
