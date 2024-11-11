@@ -11,5 +11,5 @@ CREATE TABLE IF NOT EXISTS certificados (
     data_emissao VARCHAR(100),
     cargo VARCHAR(100),
     nome_assinatura VARCHAR(100),
-    template_diploma VARCHAR(100)
+    caminho_diploma VARCHAR(100)
 );

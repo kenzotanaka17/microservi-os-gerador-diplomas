@@ -45,17 +45,18 @@ app.post('/diploma', async (req, res) => {
     carga_horaria,
     data_emissao,
     cargo, 
-    nome_assinatura,
-    template_diploma
+    nome_assinatura
   } = req.body;
 
   if (!req.body) {
     return res.status(400).send("Requisição vazia");
   }
 
+  const caminho_diploma = `worker/diplomas/diploma_${nome_aluno}.pdf`
+
   const query = `
     INSERT INTO certificados 
-    (nome_aluno, nacionalidade, naturalidade, data_nascimento, numero_rg, data_conclusao, nome_curso, carga_horaria, data_emissao, cargo, nome_assinatura, template_diploma) 
+    (nome_aluno, nacionalidade, naturalidade, data_nascimento, numero_rg, data_conclusao, nome_curso, carga_horaria, data_emissao, cargo, nome_assinatura, caminho_diploma) 
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
   `;
 
@@ -73,7 +74,7 @@ app.post('/diploma', async (req, res) => {
       data_emissao,
       cargo, 
       nome_assinatura,
-      template_diploma
+      caminho_diploma
     ]);
 
     await sendMessage(req.body);
